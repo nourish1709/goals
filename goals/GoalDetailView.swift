@@ -11,6 +11,7 @@ struct GoalDetailView: View {
     @State private var isTimerRunning = false
     @State private var currentSessionStart: Date?
     @State private var showRealityCheck = false
+    @State private var showRemoveOptions = false
 
     var body: some View {
         List {
@@ -97,17 +98,25 @@ struct GoalDetailView: View {
                 }
 
                 Picker("Status", selection: $goal.status) {
-                    Text("Active").tag(GoalStatus.active)
-                    Text("Paused").tag(GoalStatus.paused)
-                    Text("Released").tag(GoalStatus.released)
+                    ForEach(GoalStatus.allCases, id: \.self) { status in
+                        Text(status.title).tag(status)
+                    }
+                }
+
+                if goal.status != .active {
+                    Button {
+                        setStatusAndDismiss(.active)
+                    } label: {
+                        Label("Reactivate goal", systemImage: "arrow.counterclockwise")
+                    }
                 }
             }
 
             Section {
                 Button(role: .destructive) {
-                    deleteGoal()
+                    showRemoveOptions = true
                 } label: {
-                    Label("Delete goal", systemImage: "trash")
+                    Label("Remove goal", systemImage: "trash")
                 }
             }
         }
@@ -125,6 +134,17 @@ struct GoalDetailView: View {
         .sheet(isPresented: $showRealityCheck) {
             RealityCheckSheet(goal: goal)
                 .presentationDetents([.medium])
+        }
+        .confirmationDialog("Remove this goal?", isPresented: $showRemoveOptions) {
+            Button("Archive for later review") {
+                setStatusAndDismiss(.archived)
+            }
+
+            Button("Delete forever", role: .destructive) {
+                deleteGoal()
+            }
+        } message: {
+            Text("Archived goals stay in the Archived list. You can activate them again.")
         }
     }
 
@@ -161,6 +181,12 @@ struct GoalDetailView: View {
     private func deleteSubgoals(at offsets: IndexSet) {
         goal.subgoals.remove(atOffsets: offsets)
         try? modelContext.save()
+    }
+
+    private func setStatusAndDismiss(_ status: GoalStatus) {
+        goal.status = status
+        try? modelContext.save()
+        dismiss()
     }
 
     private func deleteGoal() {

@@ -1,27 +1,24 @@
 import SwiftUI
 import SwiftData
 
-// Predicates can't reference enum cases directly, so capture the value as a constant.
-private let activeStatus = GoalStatus.active
-
 struct GoalsListView: View {
-    @Query(
-        filter: #Predicate<Goal> { $0.status == activeStatus },
-        sort: \Goal.createdAt,
-        order: .reverse
-    )
-    private var activeGoals: [Goal]
-
+    @State private var selectedStatus = GoalStatus.active
     @State private var isShowingNewGoal = false
 
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(activeGoals) { goal in
-                    NavigationLink(value: goal) {
-                        GoalRow(goal: goal)
+            VStack(spacing: 0) {
+                Picker("Status", selection: $selectedStatus) {
+                    ForEach(GoalStatus.allCases, id: \.self) { status in
+                        Text(status.title).tag(status)
                     }
                 }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+
+                StatusGoalsList(status: selectedStatus)
+                    .id(selectedStatus)
             }
             .navigationTitle("My Goals")
             .navigationDestination(for: Goal.self) { goal in

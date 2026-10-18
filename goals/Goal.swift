@@ -37,10 +37,15 @@ final class Goal {
     }
 }
 
-enum GoalStatus: String, Codable {
+enum GoalStatus: String, Codable, CaseIterable {
     case active
     case paused
     case released
+    case archived
+
+    var title: String {
+        rawValue.capitalized
+    }
 }
 
 @Model

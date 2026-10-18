@@ -28,11 +28,12 @@ All source in `goals/`, flat, one type per file.
 | File | Role |
 |------|------|
 | `DreamTrackerApp.swift` | `@main`. Registers `modelContainer` for `Goal`, `Subgoal`, `FocusSession`. Root = `GoalsListView`. |
-| `Goal.swift` | SwiftData models `Goal`, `Subgoal`, `FocusSession` + `GoalStatus` enum (`active`/`paused`/`released`). |
+| `Goal.swift` | SwiftData models `Goal`, `Subgoal`, `FocusSession` + `GoalStatus` enum (`active`/`paused`/`released`/`archived`, with `title`). |
 | `GoalColor.swift` | Color palette enum (name, `Color`, hex). Goal stores `colorHex` string, not enum. |
-| `GoalsListView.swift` | Root list. `@Query` active goals, newest first. `NavigationStack` → `GoalDetailView`. "+" opens `NewGoalView`. |
+| `GoalsListView.swift` | Root screen. Segmented status picker over `StatusGoalsList`. `NavigationStack` → `GoalDetailView`. "+" opens `NewGoalView`. |
+| `StatusGoalsList.swift` | List of goals with one status, newest first. Built from a status-filtered `@Query`. Shows an empty state. |
 | `NewGoalView.swift` | Sheet to create `Goal` (title, why, color). |
-| `GoalDetailView.swift` | Focus timer, subgoals, reflection/status picker, delete, link to stats. |
+| `GoalDetailView.swift` | Focus timer, subgoals, reflection/status picker, reactivate, remove (archive or delete forever), link to stats. |
 | `GoalStatisticsView.swift` | Totals + 10 most recent sessions. |
 | `RealityCheckSheet.swift` | Reflection sheet; sets goal status, optionally overwrites `why`. |
 | `GoalRow.swift`, `SubgoalRow.swift` | List row views. |
@@ -43,12 +44,13 @@ All source in `goals/`, flat, one type per file.
 
 - `Goal` 1—* `Subgoal`, 1—* `FocusSession`; both relationships `.cascade` delete with inverse set.
 - `Goal.totalSeconds` / `formattedTotalTime` derived from sessions; nothing stored.
-- Only `active` goals show in list. Paused/released goals currently have no UI to view them.
+- The root screen shows goals of the selected status. Detail view lets the user reactivate a non-active goal.
+- "Remove goal" asks: archive (`status = .archived`) or delete forever (hard delete, cascade, not recoverable).
 
 ## Conventions / gotchas
 
 - Mutations go through `modelContext`; callers use `try? modelContext.save()` after changes.
-- `#Predicate` can't reference enum cases directly → file-level constant (`activeStatus` in `GoalsListView.swift`). Follow that pattern for new status filters.
+- `#Predicate` can't reference enum cases directly → copy the value to a local `let` before the `#Predicate` (see `StatusGoalsList.init`). Follow that pattern for new status filters.
 - Detail/sheet views take `@Bindable var goal: Goal`; read-only views take `let goal: Goal`.
 - Focus timer state (`isTimerRunning`, `currentSessionStart`) is local `@State` in `GoalDetailView`: a session is lost if the view goes away mid-run. A `FocusSession` is only created on stop.
 - Adding/renaming/retyping a model property is a SwiftData schema change; no migration plan exists yet.
