@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swift for Java Developers — The "Goals" (DreamTracker) Project</title>
+<style>
+  :root {
+    --bg: #fafafa; --fg: #1c1c1e; --muted: #6b6b70; --card: #fff; --border: #e2e2e7;
+    --accent: #4f8ef7; --code-bg: #f3f4f8; --java: #e76f00; --swift: #f05138;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151517; --fg: #ececf0; --muted: #9b9ba3; --card: #1e1e21; --border: #333338; --code-bg: #26262b; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.6 -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--fg); }
+  header { padding: 48px 24px 24px; max-width: 980px; margin: auto; }
+  h1 { font-size: 2.2rem; margin: 0 0 8px; }
+  h2 { font-size: 1.6rem; margin-top: 56px; border-bottom: 2px solid var(--border); padding-bottom: 8px; }
+  h3 { margin-top: 32px; }
+  main { max-width: 980px; margin: auto; padding: 0 24px 80px; }
+  nav { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 24px; margin-top: 16px; }
+  nav ol { columns: 2; margin: 0; padding-left: 20px; }
+  nav a { color: var(--accent); text-decoration: none; }
+  p.lead { color: var(--muted); font-size: 1.1rem; }
+  code { background: var(--code-bg); padding: 1px 6px; border-radius: 4px; font: 0.9em ui-monospace, Menlo, monospace; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font: 0.85rem/1.5 ui-monospace, Menlo, monospace; }
+  pre code { background: none; padding: 0; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 16px 0; font-size: 0.93rem; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--code-bg); }
+  .java { color: var(--java); font-weight: 600; }
+  .swift { color: var(--swift); font-weight: 600; }
+  .callout { background: var(--card); border-left: 4px solid var(--accent); padding: 12px 16px; border-radius: 6px; margin: 16px 0; }
+  .callout.warn { border-left-color: var(--swift); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } nav ol { columns: 1; } }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 4px 16px 12px; }
+  .tag { display: inline-block; font-size: 0.75rem; padding: 1px 8px; border-radius: 99px; background: var(--code-bg); border: 1px solid var(--border); color: var(--muted); }
+  .diagram { font: 0.85rem/1.4 ui-monospace, Menlo, monospace; white-space: pre; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; overflow-x: auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Swift for Java Developers</h1>
+  <p class="lead">A guided tour of the <strong>Goals / DreamTracker</strong> iOS app, explained in terms a Java backend engineer already knows.</p>
+  <nav>
+    <strong>Contents</strong>
+    <ol>
+      <li><a href="#project">What this project is</a></li>
+      <li><a href="#runtime">Compiled? Interpreted? VM?</a></li>
+      <li><a href="#paradigm">OOP, functional, or both?</a></li>
+      <li><a href="#memory">Memory: ARC vs garbage collector</a></li>
+      <li><a href="#types">Value types vs reference types</a></li>
+      <li><a href="#optionals">Optionals &amp; null safety</a></li>
+      <li><a href="#keywords">Keyword dictionary (from this code)</a></li>
+      <li><a href="#wrappers">Property wrappers &amp; macros (<code>@State</code> etc.)</a></li>
+      <li><a href="#classes">Framework types used in the project</a></li>
+      <li><a href="#files">File-by-file walkthrough</a></li>
+      <li><a href="#flow">How data flows (the "semantics")</a></li>
+      <li><a href="#cheatsheet">Java → Swift cheat sheet</a></li>
+    </ol>
+  </nav>
+</header>
+
+<main>
+
+<!-- ============================================================ -->
+<h2 id="project">1. What this project is</h2>
+<p>A small iOS app for tracking personal goals. A user can:</p>
+<ul>
+  <li>Create a <strong>Goal</strong> with a title, a "why", and a colour (<code>NewGoalView</code>).</li>
+  <li>Break it into <strong>Subgoals</strong> and tick them off (<code>SubgoalRow</code>).</li>
+  <li>Run a timer to record <strong>FocusSessions</strong> (<code>GoalDetailView</code>).</li>
+  <li>Do a "reality check" — pause or release a goal that no longer matters (<code>RealityCheckSheet</code>).</li>
+  <li>View totals (<code>GoalStatisticsView</code>).</li>
+</ul>
+<p>In backend terms, map it like this:</p>
+<table>
+  <tr><th>Layer</th><th>Java backend analogy</th><th>This project</th></tr>
+  <tr><td>Entities</td><td>JPA <code>@Entity</code> classes</td><td><code>Goal</code>, <code>Subgoal</code>, <code>FocusSession</code> in <code>Goal.swift</code> (SwiftData <code>@Model</code>)</td></tr>
+  <tr><td>Persistence</td><td>Hibernate <code>EntityManager</code> / Spring Data</td><td><code>ModelContext</code> + <code>ModelContainer</code> (SwiftData, backed by SQLite)</td></tr>
+  <tr><td>Queries</td><td>JPQL / <code>@Query</code> in Spring Data</td><td><code>@Query</code> + <code>#Predicate</code></td></tr>
+  <tr><td>Presentation</td><td>Controllers + Thymeleaf/React</td><td>SwiftUI <code>View</code> structs</td></tr>
+  <tr><td>Bootstrap</td><td><code>public static void main</code> / <code>@SpringBootApplication</code></td><td><code>@main struct DreamTrackerApp: App</code></td></tr>
+</table>
+<div class="callout">There is <strong>no server, no REST, no DI container</strong>. Everything runs on-device; data lives in a local SQLite database managed by SwiftData.</div>
+
+<!-- ============================================================ -->
+<h2 id="runtime">2. Compiled? Interpreted? Virtual machine?</h2>
+<p><strong>Swift is compiled ahead-of-time (AOT) to native machine code. There is no JVM-like virtual machine and no interpreter in production.</strong></p>
+
+<div class="grid">
+  <div class="card">
+    <h3 class="java">Java pipeline</h3>
+    <div class="diagram">.java
+  │ javac
+  ▼
+.class (bytecode)
+  │ JVM: interpreter + JIT
+  ▼
+machine code (at runtime)
++ Garbage Collector
++ Class loading, reflection</div>
+  </div>
+  <div class="card">
+    <h3 class="swift">Swift pipeline</h3>
+    <div class="diagram">.swift
+  │ swiftc (frontend)
+  ▼
+SIL → LLVM IR
+  │ LLVM backend (optimizer)
+  ▼
+native ARM64 binary (.app)
+runs directly on CPU
++ small Swift runtime (ARC, metadata)</div>
+  </div>
+</div>
+
+<table>
+  <tr><th>Question</th><th>Java</th><th>Swift</th></tr>
+  <tr><td>Compiled?</td><td>To bytecode</td><td>To native machine code (via LLVM)</td></tr>
+  <tr><td>Virtual machine?</td><td>Yes, the JVM</td><td><strong>No.</strong> There is a lightweight runtime library, not a VM</td></tr>
+  <tr><td>JIT?</td><td>Yes (HotSpot)</td><td>No JIT on iOS (the OS forbids it for apps). Optimization happens at build time</td></tr>
+  <tr><td>Garbage collector?</td><td>Yes</td><td>No — uses <strong>ARC</strong> (reference counting, inserted at compile time)</td></tr>
+  <tr><td>"Write once, run anywhere"?</td><td>Yes (same bytecode)</td><td>No — you compile per target platform (iOS, macOS, Linux...)</td></tr>
+  <tr><td>Build tool</td><td>Maven / Gradle</td><td>Xcode build system (<code>xcodebuild</code>), Swift Package Manager for libraries</td></tr>
+  <tr><td>Startup time</td><td>JVM warm-up</td><td>Instant — it is just a native binary</td></tr>
+  <tr><td>REPL / scripting</td><td>jshell</td><td>Swift can run as a script (<code>swift file.swift</code>) and Xcode Playgrounds/Previews use an incremental JIT, but shipped apps are native</td></tr>
+</table>
+<div class="callout">Practical effect: compile errors catch a lot, performance is predictable (no GC pauses), and reflection is far more limited than in Java. That limitation is why SwiftData uses <strong>macros</strong> (<code>@Model</code>) — code generation at compile time — instead of runtime bytecode proxies like Hibernate does.</div>
+
+<!-- ============================================================ -->
+<h2 id="paradigm">3. Object-oriented, functional, or both?</h2>
+<p>Swift is <strong>multi-paradigm</strong>. Apple calls it <em>"protocol-oriented"</em>. Here is what that means for you:</p>
+<table>
+  <tr><th>Paradigm</th><th>Swift support</th><th>Seen in this project</th></tr>
+  <tr><td>Object-oriented</td><td>Classes with single inheritance, polymorphism, access control</td><td><code>final class Goal</code> (reference type, entity)</td></tr>
+  <tr><td>Protocol-oriented</td><td>Protocols = interfaces <em>with default implementations</em> (extensions), usable by structs/enums too</td><td><code>View</code>, <code>App</code>, <code>Identifiable</code>, <code>Codable</code>, <code>CaseIterable</code></td></tr>
+  <tr><td>Functional</td><td>First-class closures, <code>map</code>/<code>filter</code>/<code>reduce</code>, immutability by default (<code>let</code>), value semantics</td><td><code>sessions.reduce(0) { $0 + $1.duration }</code>, <code>.filter { !$0.isEmpty }</code></td></tr>
+  <tr><td>Declarative / DSL</td><td>Result builders (<code>@ViewBuilder</code>) make nested function calls look like markup</td><td>Every <code>body</code> in SwiftUI</td></tr>
+  <tr><td>Concurrency</td><td><code>async/await</code>, actors, <code>@MainActor</code></td><td>Implicit — SwiftUI views run on the main actor; this project doesn't use explicit async yet</td></tr>
+</table>
+
+<h3>Java vs Swift: the same thing, side by side</h3>
+<div class="grid">
+<div>
+<p class="java">Java</p>
+<pre><code>public enum GoalStatus {
+    ACTIVE, PAUSED, RELEASED
+}
+
+@Entity
+public final class Goal {
+    @Id @GeneratedValue Long id;
+    String title;
+    String why;
+    @Enumerated(STRING) GoalStatus status;
+
+    @OneToMany(cascade = ALL, mappedBy = "goal")
+    List&lt;Subgoal&gt; subgoals = new ArrayList&lt;&gt;();
+
+    public Goal(String title, String why) {
+        this.title = title;
+        this.why = why;
+        this.status = GoalStatus.ACTIVE;
+    }
+}</code></pre>
+</div>
+<div>
+<p class="swift">Swift (this project)</p>
+<pre><code>enum GoalStatus: String, Codable {
+    case active, paused, released
+}
+
+@Model
+final class Goal {
+    var title: String
+    var why: String
+    var status: GoalStatus
+
+    @Relationship(deleteRule: .cascade,
+                  inverse: \Subgoal.goal)
+    var subgoals: [Subgoal] = []
+
+    init(title: String, why: String = "",
+         status: GoalStatus = .active) {
+        self.title = title
+        self.why = why
+        self.status = status
+    }
+}</code></pre>
+</div>
+</div>
+<p>Notice: no <code>@Id</code> (SwiftData adds a persistent identifier), no getters/setters (properties are first-class), default argument values replace constructor overloading, no <code>new</code> keyword when calling constructors (<code>Goal(title: "x")</code>).</p>
+
+<!-- ============================================================ -->
+<h2 id="memory">4. Memory: ARC instead of a garbage collector</h2>
+<p>The compiler inserts <code>retain</code> / <code>release</code> calls automatically. Each class instance has a counter of strong references; when it hits zero the object is freed <em>immediately and deterministically</em> (<code>deinit</code> runs right then, unlike Java's unpredictable <code>finalize</code>).</p>
+<ul>
+  <li><strong>Gotcha — retain cycles:</strong> if A strongly references B and B strongly references A, neither is freed. Swift solves this with <code>weak</code> and <code>unowned</code> references. In Java, the GC handles cycles for you.</li>
+  <li><strong>In this project:</strong> <code>Goal.subgoals ↔ Subgoal.goal</code> look like a cycle, but SwiftData manages the object graph, so you don't hand-write <code>weak</code> here.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="types">5. Value types vs reference types (the biggest mental shift)</h2>
+<table>
+  <tr><th></th><th><code>class</code> (reference)</th><th><code>struct</code> / <code>enum</code> (value)</th></tr>
+  <tr><td>Assignment</td><td>Copies the <em>pointer</em> (shared object), like all Java objects</td><td>Copies the <em>data</em> (independent copy)</td></tr>
+  <tr><td>Inheritance</td><td>Yes (single)</td><td>No (but can conform to protocols)</td></tr>
+  <tr><td>Mutation</td><td>Always allowed on <code>var</code> properties</td><td>Only if the instance is <code>var</code> (<code>let</code> struct is fully immutable)</td></tr>
+  <tr><td>Used here for</td><td><code>Goal</code>, <code>Subgoal</code>, <code>FocusSession</code> — entities with identity</td><td>All views (<code>GoalsListView</code>…), <code>DreamTrackerApp</code>, <code>GoalColor</code>, <code>GoalStatus</code></td></tr>
+</table>
+<p>Java only has "reference types" (objects) and "primitives". In Swift, <code>String</code>, <code>Int</code>, <code>Array</code>, <code>Dictionary</code>, <code>Date</code> are all <strong>structs</strong> (value types, copy-on-write for collections). The rule of thumb: <em>use structs by default; use classes when you need identity or shared mutable state</em> — which is exactly why database entities are classes and UI views are structs.</p>
+<div class="callout"><code>enum</code> in Swift is far more powerful than in Java: cases can have associated values, computed properties, methods, and a <code>String</code>/<code>Int</code> raw type. See <code>GoalColor</code>, which has computed properties and a <code>switch</code> inside an enum.</div>
+
+<!-- ============================================================ -->
+<h2 id="optionals">6. Optionals &amp; null safety</h2>
+<p>Swift has no <code>null</code> for normal types. A value that may be absent is an <strong>Optional</strong> (<code>T?</code>), like Java's <code>Optional&lt;T&gt;</code> but built into the language and enforced by the compiler everywhere.</p>
+<pre><code>var completedAt: Date?                // Subgoal.swift: may be nil
+var goal: Goal?                       // back-reference, may be nil
+
+guard let start = currentSessionStart else { return }   // unwrap or exit early
+if isTimerRunning, let start = currentSessionStart { }  // unwrap in condition
+try? modelContext.save()              // "try?" turns a thrown error into nil</code></pre>
+<table>
+  <tr><th>Swift</th><th>Java equivalent</th></tr>
+  <tr><td><code>if let x = opt { … }</code></td><td><code>opt.ifPresent(x -&gt; …)</code> / <code>if (x != null)</code></td></tr>
+  <tr><td><code>guard let x = opt else { return }</code></td><td><code>if (x == null) return;</code> — and <code>x</code> stays unwrapped for the rest of the scope</td></tr>
+  <tr><td><code>opt ?? defaultValue</code></td><td><code>opt.orElse(defaultValue)</code></td></tr>
+  <tr><td><code>opt?.method()</code></td><td>no direct equivalent (optional chaining, short-circuits to nil)</td></tr>
+  <tr><td><code>opt!</code></td><td><code>opt.get()</code> — crashes if nil. Avoid</td></tr>
+</table>
+<p><strong>Errors:</strong> Swift has <code>throws</code>/<code>try</code>/<code>catch</code> but <em>no checked-exception declarations in signatures beyond <code>throws</code></em>, and errors are values, not class hierarchies you extend from <code>Exception</code>. See <code>NewGoalView.saveGoal()</code> for <code>do { try … } catch { … }</code>.</p>
+
+<!-- ============================================================ -->
+<h2 id="keywords">7. Keyword dictionary (all taken from this code)</h2>
+<table>
+  <tr><th>Keyword / syntax</th><th>Meaning</th><th>Java comparison</th><th>Example in project</th></tr>
+  <tr><td><code>import</code></td><td>Import a whole module (framework)</td><td><code>import</code> but module-level, not per class</td><td><code>import SwiftUI</code></td></tr>
+  <tr><td><code>let</code></td><td>Immutable binding (constant)</td><td><code>final</code> variable</td><td><code>let goal: Goal</code>, <code>let title = …</code></td></tr>
+  <tr><td><code>var</code></td><td>Mutable variable/property</td><td>non-final variable</td><td><code>var title: String</code></td></tr>
+  <tr><td><code>func</code></td><td>Declare a function/method</td><td>method</td><td><code>private func startSession()</code></td></tr>
+  <tr><td><code>struct</code></td><td>Value type with properties &amp; methods</td><td>Closest: Java <code>record</code>, but mutable &amp; with no inheritance</td><td><code>struct GoalsListView: View</code></td></tr>
+  <tr><td><code>class</code> / <code>final class</code></td><td>Reference type; <code>final</code> = cannot be subclassed</td><td><code>class</code> / <code>final class</code></td><td><code>final class Goal</code></td></tr>
+  <tr><td><code>enum</code> + <code>case</code></td><td>Closed set of values; can have methods &amp; computed props</td><td><code>enum</code> (but richer)</td><td><code>GoalStatus</code>, <code>GoalColor</code></td></tr>
+  <tr><td><code>protocol</code> / conformance <code>: View</code></td><td>Interface; <code>struct X: Protocol</code> = "implements"</td><td><code>interface</code> / <code>implements</code></td><td><code>: View</code>, <code>: App</code>, <code>: Identifiable</code></td></tr>
+  <tr><td><code>init</code></td><td>Constructor. All stored properties must be set before use</td><td>constructor</td><td><code>init(title: String, why: String = "")</code></td></tr>
+  <tr><td><code>self</code></td><td>Current instance</td><td><code>this</code></td><td><code>self.title = title</code></td></tr>
+  <tr><td><code>private</code></td><td>Visible within the enclosing declaration/file scope</td><td><code>private</code></td><td><code>private func saveGoal()</code></td></tr>
+  <tr><td>(no modifier)</td><td>Default access is <code>internal</code> = visible within the module</td><td>package-private (roughly)</td><td>Most types here</td></tr>
+  <tr><td><code>some View</code></td><td><em>Opaque return type</em>: "some concrete type conforming to View, compiler knows which"</td><td>Roughly a return type of <code>&lt;? extends View&gt;</code> but fully resolved and zero-overhead</td><td><code>var body: some View</code></td></tr>
+  <tr><td><code>guard … else</code></td><td>Early exit; condition must hold afterwards</td><td>guard clause <code>if (!cond) return;</code></td><td><code>guard !title.isEmpty else { return }</code></td></tr>
+  <tr><td><code>switch</code></td><td>Exhaustive pattern matching, no fall-through</td><td>switch expressions (Java 14+)</td><td><code>GoalColor.name</code></td></tr>
+  <tr><td><code>try</code> / <code>try?</code> / <code>do-catch</code></td><td>Call a throwing function; <code>try?</code> → optional result</td><td><code>try / catch</code></td><td><code>try? modelContext.save()</code></td></tr>
+  <tr><td><code>$0</code>, <code>$1</code></td><td>Anonymous closure arguments</td><td>lambda params, but unnamed</td><td><code>.map { $0.trimmingCharacters(in: .whitespaces) }</code></td></tr>
+  <tr><td><code>\.isCompleted</code></td><td>Key path: a reference to a property, usable as a function</td><td>Method reference <code>Subgoal::isCompleted</code></td><td><code>.filter(\.isCompleted)</code></td></tr>
+  <tr><td><code>.active</code> (leading dot)</td><td>Implicit member expression — type inferred from context</td><td>no equivalent (like <code>GoalStatus.ACTIVE</code> without the type name)</td><td><code>status: GoalStatus = .active</code></td></tr>
+  <tr><td><code>"\(value)"</code></td><td>String interpolation</td><td><code>"%s".formatted(value)</code> / <code>STR."\{v}"</code></td><td><code>"Subgoal \(index + 1)"</code></td></tr>
+  <tr><td><code>label: value</code></td><td>Argument labels are part of the call and the method name</td><td>none (Java uses positional args)</td><td><code>Goal(title: "x", why: "y")</code></td></tr>
+  <tr><td><code>$property</code></td><td>Binding to a property (two-way reference), see §8</td><td>none</td><td><code>TextField("…", text: $title)</code></td></tr>
+  <tr><td><code>@main</code></td><td>Marks the program entry point</td><td><code>public static void main</code></td><td><code>@main struct DreamTrackerApp</code></td></tr>
+  <tr><td><code>extension</code> (not used here, but common)</td><td>Add methods to existing types, even ones you don't own</td><td>none (closest: Kotlin extension funcs)</td><td>–</td></tr>
+  <tr><td><code>async</code>/<code>await</code>/<code>actor</code> (not used here)</td><td>Structured concurrency</td><td>virtual threads / CompletableFuture</td><td>–</td></tr>
+</table>
+
+<h3>Closures &amp; trailing-closure syntax</h3>
+<p>If the last argument of a function is a closure, you can write it after the parentheses. This is why SwiftUI code looks like markup:</p>
+<pre><code>Button { isShowingNewGoal = true } label: { Image(systemName: "plus") }
+//     └── action closure (trailing)       └── "label:" closure
+
+sessions.reduce(0) { $0 + $1.duration }
+// Java: sessions.stream().mapToDouble(Session::duration).sum()</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="wrappers">8. Property wrappers &amp; macros (the <code>@</code> things)</h2>
+<p>In Java, annotations are metadata read via reflection at runtime. In Swift there are two distinct things sharing the <code>@</code> sigil:</p>
+<ul>
+  <li><strong>Property wrappers</strong> (<code>@State</code>, <code>@Query</code>, <code>@Bindable</code>, <code>@Environment</code>): they <em>change how a property behaves</em> — e.g. storing the value elsewhere and triggering UI refreshes.</li>
+  <li><strong>Macros</strong> (<code>@Model</code>, <code>#Predicate</code>): compile-time <em>code generators</em> that expand into more Swift code. Closest Java analogue: annotation processors like Lombok / MapStruct — except the generated code is type-checked Swift.</li>
+</ul>
+
+<table>
+  <tr><th>Attribute</th><th>What it does</th><th>Analogy</th><th>Where</th></tr>
+  <tr><td><code>@main</code></td><td>Entry point</td><td><code>main()</code> / <code>@SpringBootApplication</code></td><td>DreamTrackerApp</td></tr>
+  <tr><td><code>@Model</code></td><td>Macro. Makes a class observable <em>and</em> persistable by SwiftData; adds change tracking, persistent ID, and schema info</td><td><code>@Entity</code> + Hibernate dirty-checking</td><td>Goal, Subgoal, FocusSession</td></tr>
+  <tr><td><code>@Relationship(deleteRule:inverse:)</code></td><td>Declares an association; <code>.cascade</code> deletes children with parent; <code>inverse:</code> points to the owning-side key path</td><td><code>@OneToMany(cascade = REMOVE, mappedBy = …)</code></td><td>Goal.subgoals, Goal.sessions</td></tr>
+  <tr><td><code>@Query</code></td><td>Live-fetches entities and <strong>auto-refreshes the view</strong> when the DB changes</td><td>Spring Data <code>@Query</code>, but reactive</td><td>GoalsListView.activeGoals</td></tr>
+  <tr><td><code>#Predicate</code></td><td>Macro that turns a Swift closure into a type-safe, database-translatable filter</td><td>JPA Criteria API / QueryDSL</td><td><code>{ $0.status == activeStatus }</code></td></tr>
+  <tr><td><code>@State</code></td><td>View-local mutable state owned by SwiftUI. Changing it re-renders <code>body</code></td><td>A mutable field in a stateful component; React <code>useState</code></td><td><code>@State private var title = ""</code></td></tr>
+  <tr><td><code>@Bindable</code></td><td>Lets you create <code>$binding</code>s into properties of an <code>@Observable</code>/<code>@Model</code> object</td><td>–</td><td><code>@Bindable var goal: Goal</code> → <code>$goal.status</code></td></tr>
+  <tr><td><code>@Environment(\.x)</code></td><td>Reads a value injected by an ancestor/system</td><td>Dependency injection / <code>@Autowired</code> / ThreadLocal context</td><td><code>\.modelContext</code>, <code>\.dismiss</code></td></tr>
+</table>
+
+<h3>Why views are structs and still hold state</h3>
+<p>A SwiftUI view is a throw-away, lightweight <em>description</em> of the UI. SwiftUI re-creates these structs constantly. <code>@State</code> stores the value outside the struct (in SwiftUI's own storage), so it survives re-creation. When a <code>@State</code> value or an observed <code>@Model</code> property changes, SwiftUI calls <code>body</code> again and diffs the result — conceptually like React.</p>
+
+<h3>Bindings: <code>$</code></h3>
+<p><code>title</code> reads the value; <code>$title</code> is a <code>Binding&lt;String&gt;</code> — a getter/setter pair that a <code>TextField</code> uses to write back. There is no Java equivalent; think of it as passing a <em>reference to the variable itself</em>.</p>
+
+<!-- ============================================================ -->
+<h2 id="classes">9. Framework types used in the project</h2>
+
+<h3>Modules</h3>
+<table>
+  <tr><th>Module</th><th>Role</th></tr>
+  <tr><td><strong>Swift (stdlib)</strong></td><td>Always available: <code>String</code>, <code>Int</code>, <code>Bool</code>, <code>Array</code>, <code>Optional</code>, <code>Dictionary</code>, <code>Codable</code>, <code>Identifiable</code>, <code>CaseIterable</code>… ≈ <code>java.lang</code> + <code>java.util</code></td></tr>
+  <tr><td><strong>Foundation</strong></td><td>Dates, durations, formatting, URL, JSON, <code>IndexSet</code> ≈ <code>java.time</code> + <code>java.text</code> + <code>java.net</code></td></tr>
+  <tr><td><strong>SwiftUI</strong></td><td>Declarative UI framework (views, navigation, controls) ≈ JavaFX/React for iOS</td></tr>
+  <tr><td><strong>SwiftData</strong></td><td>Persistence ≈ JPA/Hibernate over SQLite</td></tr>
+</table>
+
+<h3>App &amp; Scene</h3>
+<table>
+  <tr><th>Type</th><th>What it is</th></tr>
+  <tr><td><code>App</code> (protocol)</td><td>Root of the app. Required member: <code>var body: some Scene</code></td></tr>
+  <tr><td><code>WindowGroup</code></td><td>A scene that creates a window (on iPhone: the single full-screen window) showing the root view</td></tr>
+  <tr><td><code>.modelContainer(for: [...])</code></td><td>Creates the SwiftData database (<code>ModelContainer</code>) for the listed entity types and injects a <code>ModelContext</code> into the environment of every view below it. ≈ configuring <code>EntityManagerFactory</code> + DI</td></tr>
+</table>
+
+<h3>SwiftData</h3>
+<table>
+  <tr><th>Type</th><th>Meaning</th><th>Java analogy</th></tr>
+  <tr><td><code>ModelContainer</code></td><td>The database + schema</td><td><code>EntityManagerFactory</code> / <code>DataSource</code></td></tr>
+  <tr><td><code>ModelContext</code></td><td>Unit of work: <code>insert</code>, <code>delete</code>, <code>save</code>. Tracks changes to loaded objects</td><td><code>EntityManager</code> / Hibernate <code>Session</code></td></tr>
+  <tr><td><code>PersistentModel</code> (via <code>@Model</code>)</td><td>Protocol every entity gets</td><td><code>@Entity</code></td></tr>
+  <tr><td><code>Query</code></td><td>Live query result bound to the view</td><td><code>Repository.findAll(spec, sort)</code></td></tr>
+</table>
+<div class="callout warn"><strong>Note:</strong> SwiftData saves automatically at certain points, but this code also calls <code>try? modelContext.save()</code> explicitly after important changes — like calling <code>flush()/commit()</code>.</div>
+
+<h3>SwiftUI: containers &amp; layout</h3>
+<table>
+  <tr><th>Type</th><th>Meaning</th></tr>
+  <tr><td><code>View</code> (protocol)</td><td>Anything drawable. Single requirement: <code>var body: some View</code></td></tr>
+  <tr><td><code>VStack</code> / <code>HStack</code></td><td>Vertical / horizontal layout (like <code>flex-direction: column/row</code>). <code>alignment</code>, <code>spacing</code> parameters</td></tr>
+  <tr><td><code>Spacer</code></td><td>Flexible empty space that pushes siblings apart</td></tr>
+  <tr><td><code>List</code></td><td>Scrollable table of rows (UITableView-style)</td></tr>
+  <tr><td><code>Section</code></td><td>Grouped block inside a List/Form, optional header title</td></tr>
+  <tr><td><code>Form</code></td><td>List styled for data entry (settings-like screen)</td></tr>
+  <tr><td><code>ForEach</code></td><td>Generates a view per element of a collection; elements must be <code>Identifiable</code> or you pass <code>id:</code></td></tr>
+  <tr><td><code>TimelineView</code></td><td>Re-renders its content on a schedule (here, every second for the timer)</td></tr>
+</table>
+
+<h3>SwiftUI: controls &amp; content</h3>
+<table>
+  <tr><th>Type</th><th>Meaning</th></tr>
+  <tr><td><code>Text</code></td><td>Label with a string</td></tr>
+  <tr><td><code>Image(systemName:)</code></td><td>Built-in SF Symbol icon (e.g. <code>"plus"</code>, <code>"trash"</code>)</td></tr>
+  <tr><td><code>Label</code></td><td>Text + icon pair</td></tr>
+  <tr><td><code>Button</code></td><td>Tappable; first closure = action, <code>label:</code> closure = appearance. <code>role: .destructive</code> styles it red</td></tr>
+  <tr><td><code>TextField</code> / <code>TextEditor</code></td><td>Single-line / multi-line text input bound via <code>$</code></td></tr>
+  <tr><td><code>Picker</code></td><td>Choice control bound to a selection; items identified by <code>.tag()</code></td></tr>
+  <tr><td><code>LabeledContent</code></td><td>"Label … value" row</td></tr>
+  <tr><td><code>Color</code></td><td>A colour (<code>.blue</code>, <code>.secondary</code> …)</td></tr>
+</table>
+
+<h3>SwiftUI: navigation &amp; presentation</h3>
+<table>
+  <tr><th>Type / modifier</th><th>Meaning</th></tr>
+  <tr><td><code>NavigationStack</code></td><td>Push/pop navigation container (like a back-stack)</td></tr>
+  <tr><td><code>NavigationLink(value:)</code> + <code>.navigationDestination(for:)</code></td><td>Type-based routing: pushing a <code>Goal</code> value shows <code>GoalDetailView</code>. Like route mappings by parameter type</td></tr>
+  <tr><td><code>.sheet(isPresented:)</code></td><td>Modal screen driven by a Bool state. Flip the Bool and the sheet appears</td></tr>
+  <tr><td><code>.presentationDetents([.medium])</code></td><td>Make a sheet half-height</td></tr>
+  <tr><td><code>.toolbar { ToolbarItem(placement:) }</code></td><td>Items in the navigation bar</td></tr>
+  <tr><td><code>dismiss</code> (from <code>@Environment(\.dismiss)</code>)</td><td>A callable that closes the current screen/sheet</td></tr>
+</table>
+
+<h3>Modifiers</h3>
+<p>Calls like <code>.font(.headline)</code>, <code>.padding()</code>, <code>.foregroundStyle(.secondary)</code> are <strong>modifiers</strong>: each one wraps the view and returns a <em>new</em> view. Order matters (<code>.padding().background(.red)</code> ≠ <code>.background(.red).padding()</code>). This is a fluent/builder pattern over immutable value types.</p>
+
+<h3>Foundation types</h3>
+<table>
+  <tr><th>Type</th><th>Meaning</th><th>Java analogy</th></tr>
+  <tr><td><code>Date</code></td><td>A point in time. <code>Date()</code> = now</td><td><code>Instant</code></td></tr>
+  <tr><td><code>TimeInterval</code></td><td>Typealias for <code>Double</code> (seconds)</td><td><code>double</code> seconds</td></tr>
+  <tr><td><code>Duration</code></td><td>Time span with formatting</td><td><code>java.time.Duration</code></td></tr>
+  <tr><td><code>IndexSet</code></td><td>Set of integer positions, passed by swipe-to-delete</td><td><code>Set&lt;Integer&gt;</code></td></tr>
+</table>
+
+<h3>Protocols from the stdlib you see here</h3>
+<table>
+  <tr><th>Protocol</th><th>Why it's used</th></tr>
+  <tr><td><code>Identifiable</code></td><td>Has a stable <code>id</code>; required by <code>ForEach</code>. <code>@Model</code> classes get this for free; <code>GoalColor</code> implements it by hand with <code>var id: String { rawValue }</code></td></tr>
+  <tr><td><code>CaseIterable</code></td><td>Auto-generates <code>allCases</code> array for an enum (like <code>Enum.values()</code>)</td></tr>
+  <tr><td><code>Codable</code></td><td>Auto-generated (de)serialization (≈ Jackson). Required so SwiftData can store <code>GoalStatus</code></td></tr>
+  <tr><td><code>Hashable</code></td><td>Required by <code>NavigationLink(value:)</code>; <code>@Model</code> provides it</td></tr>
+</table>
+<p><code>enum GoalStatus: String, Codable</code> — the <code>String</code> after the colon is the <strong>raw value type</strong>, so <code>.active</code> has raw value <code>"active"</code>. It's the same as storing a Java enum with <code>@Enumerated(STRING)</code>.</p>
+
+<!-- ============================================================ -->
+<h2 id="files">10. File-by-file walkthrough</h2>
+
+<h3><code>DreamTrackerApp.swift</code> — the bootstrap</h3>
+<pre><code>@main
+struct DreamTrackerApp: App {
+    var body: some Scene {
+        WindowGroup { GoalsListView() }
+            .modelContainer(for: [Goal.self, Subgoal.self, FocusSession.self])
+    }
+}</code></pre>
+<p>Equivalent of <code>main()</code> + a Spring config class: shows the first screen and registers the DB schema. <code>Goal.self</code> is the <em>type object</em> (<code>Goal.class</code> in Java).</p>
+
+<h3><code>Goal.swift</code> — the domain model</h3>
+<ul>
+  <li><code>Goal</code> 1—N <code>Subgoal</code> and 1—N <code>FocusSession</code>, both with <code>.cascade</code> delete (delete a goal → children removed).</li>
+  <li>Computed properties <code>totalSeconds</code> and <code>formattedTotalTime</code> are <em>not stored</em>; they're recalculated on every access (like a getter with no field).</li>
+  <li><code>FocusSession.duration</code> = <code>endedAt - startedAt</code>.</li>
+  <li><code>final</code> on <code>@Model</code> classes is required: SwiftData's generated code doesn't support subclasses.</li>
+</ul>
+
+<h3><code>GoalColor.swift</code> — enum with behavior</h3>
+<p>UI-side enum mapping a color choice to a name, a SwiftUI <code>Color</code> and a hex string (the hex string is what's persisted in <code>Goal.colorHex</code>). It shows <em>switch expressions</em>: each <code>case</code> directly yields a value without <code>return</code>.</p>
+
+<h3><code>GoalsListView.swift</code> — the home screen</h3>
+<ul>
+  <li><code>@Query</code> with <code>#Predicate</code> fetches only <code>.active</code> goals, sorted newest-first. The result array updates automatically as data changes.</li>
+  <li>The comment about <code>activeStatus</code> as a file-level <code>private let</code>: macros can't capture enum cases inside the predicate, so a constant is used.</li>
+  <li><code>@State isShowingNewGoal</code> toggles the "new goal" sheet.</li>
+  <li><code>NavigationLink(value: goal)</code> + <code>.navigationDestination(for: Goal.self)</code> routes to <code>GoalDetailView</code>.</li>
+</ul>
+
+<h3><code>GoalRow.swift</code> — a list cell</h3>
+<p>A tiny stateless view that takes a <code>let goal</code> and shows title + total time. Like a pure presentational component.</p>
+
+<h3><code>NewGoalView.swift</code> — the creation form</h3>
+<ul>
+  <li>Local form state in <code>@State</code> (title, why, color, subgoal titles).</li>
+  <li><code>canSave</code> is a computed property used to disable the Save button.</li>
+  <li><code>saveGoal()</code>: trim input → create <code>Goal</code> → append <code>Subgoal</code>s → <code>modelContext.insert</code> → <code>save()</code> → <code>dismiss()</code>. Similar to a service method with a transaction.</li>
+  <li><code>ForEach($subgoalTitles.indices, id: \.self)</code> lets each row bind to <code>$subgoalTitles[index]</code>.</li>
+</ul>
+
+<h3><code>GoalDetailView.swift</code> — the main screen</h3>
+<ul>
+  <li><code>@Bindable var goal</code> enables <code>$goal.status</code> for the <code>Picker</code> — edits write straight into the model object.</li>
+  <li>The timer state (<code>isTimerRunning</code>, <code>currentSessionStart</code>) is purely UI state; only on Stop does it create and persist a <code>FocusSession</code>.</li>
+  <li><code>TimelineView(.periodic(from:by:))</code> ticks every second so the elapsed time label updates — no manual <code>Timer</code>/thread.</li>
+  <li>Private helper methods (<code>startSession</code>, <code>stopSession</code>, <code>addSubgoal</code>, <code>deleteSubgoals</code>, <code>deleteGoal</code>) act like service methods.</li>
+  <li>Deleting: <code>modelContext.delete(goal)</code> then <code>dismiss()</code> pops back to the list.</li>
+</ul>
+
+<h3><code>SubgoalRow.swift</code> — editable row</h3>
+<p>Uses <code>@Bindable</code> so toggling <code>isCompleted</code> or editing the title mutates the <code>@Model</code> directly, and the UI updates through observation. Note the ternaries driving icon and colour.</p>
+
+<h3><code>RealityCheckSheet.swift</code> — reflection dialog</h3>
+<p>A sheet that sets <code>goal.status</code> to <code>.active</code>, <code>.paused</code> or <code>.released</code> and optionally overwrites <code>goal.why</code>. Since the list queries only <code>.active</code> goals, pausing/releasing makes the goal vanish from the home list automatically — a nice illustration of reactive <code>@Query</code>.</p>
+
+<h3><code>GoalStatisticsView.swift</code> — read-only report</h3>
+<p>Shows totals and the 10 most recent sessions using <code>sorted { $0.startedAt &gt; $1.startedAt }.prefix(10)</code> (Java: <code>stream().sorted(comparing(...).reversed()).limit(10)</code>).</p>
+
+<!-- ============================================================ -->
+<h2 id="flow">11. How data flows (the "semantics")</h2>
+<div class="diagram">App launch
+  └─ DreamTrackerApp creates ModelContainer (SQLite) and injects ModelContext
+       └─ GoalsListView
+            ├─ @Query ──────────► reads active Goals from the DB (live)
+            ├─ "+" ─► sheet ─► NewGoalView ─► modelContext.insert(Goal) ─► save()
+            │                                        │
+            │          @Query notices the change ◄───┘ → list re-renders
+            └─ tap row ─► GoalDetailView(goal)
+                 ├─ @Bindable goal ─► edits mutate the model directly
+                 ├─ Start/Stop ─► @State timer ─► FocusSession appended ─► save()
+                 ├─ Subgoals ─► SubgoalRow (toggle/edit) ─► model changes
+                 ├─ Reality check sheet ─► goal.status = .paused / .released
+                 │                          (goal leaves the active @Query)
+                 └─ Statistics ─► GoalStatisticsView (read-only)</div>
+
+<p>The core idea is <strong>unidirectional, reactive data flow</strong>: <em>state → view</em>. You never imperatively say "update this label"; you mutate state and SwiftUI recomputes the affected <code>body</code>s. In your Java world, imagine the controller never calls <code>view.setText(...)</code>; instead, the view is a pure function <code>render(state)</code> that is re-run whenever state changes.</p>
+
+<div class="callout">
+<strong>Two kinds of "state" here:</strong>
+<ul>
+  <li><em>Ephemeral UI state</em> → <code>@State</code> (form fields, timer, sheet flags). Lost when the view goes away.</li>
+  <li><em>Persistent domain state</em> → <code>@Model</code> objects. Survives app restarts via SwiftData.</li>
+</ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="cheatsheet">12. Java → Swift cheat sheet</h2>
+<table>
+  <tr><th>Java</th><th>Swift</th></tr>
+  <tr><td><code>final int x = 5;</code></td><td><code>let x = 5</code> (type inferred)</td></tr>
+  <tr><td><code>int x = 5;</code></td><td><code>var x = 5</code></td></tr>
+  <tr><td><code>String s = null;</code></td><td><code>var s: String? = nil</code></td></tr>
+  <tr><td><code>public String greet(String name)</code></td><td><code>func greet(name: String) -&gt; String</code></td></tr>
+  <tr><td><code>new Goal("x")</code></td><td><code>Goal(title: "x")</code></td></tr>
+  <tr><td><code>this.title</code></td><td><code>self.title</code></td></tr>
+  <tr><td><code>interface Foo</code> / <code>implements</code></td><td><code>protocol Foo</code> / <code>struct X: Foo</code></td></tr>
+  <tr><td><code>record Point(int x, int y)</code></td><td><code>struct Point { var x: Int; var y: Int }</code> (memberwise init is automatic)</td></tr>
+  <tr><td><code>List&lt;String&gt;</code></td><td><code>[String]</code></td></tr>
+  <tr><td><code>Map&lt;String,Integer&gt;</code></td><td><code>[String: Int]</code></td></tr>
+  <tr><td><code>list.stream().filter(...).count()</code></td><td><code>list.filter { ... }.count</code> (no stream needed; collections have the methods)</td></tr>
+  <tr><td><code>x -&gt; x * 2</code></td><td><code>{ $0 * 2 }</code> or <code>{ x in x * 2 }</code></td></tr>
+  <tr><td><code>Foo::bar</code></td><td><code>\Foo.bar</code> (key path) or <code>Foo.bar</code></td></tr>
+  <tr><td><code>try { } catch (Exception e) { }</code></td><td><code>do { try … } catch { … }</code></td></tr>
+  <tr><td><code>@Override</code></td><td><code>override</code> keyword (required)</td></tr>
+  <tr><td><code>synchronized</code> / threads</td><td><code>actor</code>, <code>@MainActor</code>, <code>async/await</code></td></tr>
+  <tr><td>Maven / Gradle</td><td>Swift Package Manager (+ Xcode project)</td></tr>
+  <tr><td>JUnit</td><td>Swift Testing (<code>@Test</code>, <code>#expect</code>) / XCTest</td></tr>
+  <tr><td>Hibernate / JPA</td><td>SwiftData (or Core Data underneath)</td></tr>
+  <tr><td>Spring DI</td><td>SwiftUI <code>@Environment</code> / explicit init injection</td></tr>
+  <tr><td>Garbage collector</td><td>ARC (<code>weak</code>, <code>unowned</code> to break cycles)</td></tr>
+  <tr><td>JVM</td><td>Native binary + small Swift runtime</td></tr>
+</table>
+
+<h3>Suggested learning path</h3>
+<ol>
+  <li>Read <code>Goal.swift</code> and <code>GoalColor.swift</code> — pure Swift, closest to Java.</li>
+  <li>Read <code>GoalRow.swift</code> and <code>SubgoalRow.swift</code> — smallest SwiftUI views.</li>
+  <li>Then <code>GoalsListView</code> → <code>NewGoalView</code> → <code>GoalDetailView</code>.</li>
+  <li>Official free book: <em>The Swift Programming Language</em> (docs.swift.org) — start with "A Swift Tour".</li>
+</ol>
+
+</main>
+</body>
+</html>
